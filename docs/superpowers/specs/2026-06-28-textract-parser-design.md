@@ -36,14 +36,19 @@ conventions.
 
 ## Flow
 
-1. **Resolve inputs** — same convention as `convert.py`: positional PDF paths,
-   else all `*.pdf` in `--input-dir` (default `input`). Reuse the same
-   validation behavior (must be an existing `.pdf`).
+1. **Resolve inputs** — sources may be **local PDF paths** or **`s3://` URIs**.
+   Positional args, else all `*.pdf` in `--input-dir` (default `input`). Local
+   paths must be an existing `.pdf` (same validation as `convert.py`); `s3://`
+   URIs must end in `.pdf` and are not stat-checked locally. The known input
+   for this project already lives at `s3://input1972/SMR-1Q26-Presentation.pdf`.
 2. **Per PDF — run Textract** via Textractor's async
    `start_document_analysis`:
    - features: `LAYOUT` + `TABLES`
-   - `s3_upload_path` set to the user's bucket + prefix; Textractor uploads the
-     PDF, starts the async job, polls to completion, and returns a `Document`.
+   - **Local source:** `s3_upload_path` set to `--bucket` + `--s3-prefix`;
+     Textractor uploads the PDF, starts the async job, polls to completion, and
+     returns a `Document`.
+   - **`s3://` source:** point Textract directly at the existing object — no
+     upload. (`--bucket` is then optional / unused.)
 3. **Save raw JSON** — write the underlying Textract API response to
    `output/textract/<stem>.json` (pretty-printed). This is the raw block data,
    useful for debugging the comparison.
@@ -62,9 +67,9 @@ conventions.
 | Arg | Required | Default | Purpose |
 |-----|----------|---------|---------|
 | `paths` (positional) | no | — | PDF files; if omitted, scan `--input-dir`. |
-| `--bucket` | **yes** | — | Existing S3 bucket used as scratch for async uploads. |
-| `--region` | no | `us-east-1` | AWS region. |
-| `--s3-prefix` | no | `textract-scratch/` | Key prefix for uploaded PDFs. |
+| `--bucket` | for local sources | — | Existing S3 bucket used as scratch for uploads. Not needed when all sources are `s3://` URIs. |
+| `--region` | no | auto-detected from the bucket via `GetBucketLocation`; falls back to `us-east-1` | AWS region. Must match the bucket's region (Textract requirement). |
+| `--s3-prefix` | no | `textract-scratch/` | Key prefix for uploaded local PDFs. |
 | `--input-dir` | no | `input` | Folder scanned when no paths given. |
 | `--output-dir` | no | `output` | Base output dir; files go to `<output-dir>/textract/`. |
 | `--quiet` | no | off | Suppress per-step logging; keep final summary. |
@@ -75,10 +80,12 @@ flags.
 ## Error handling
 
 - Per-file `try/except` that continues across the batch (same as `convert.py`).
-- A clear `error: ...` message + non-zero exit for: missing/invalid bucket,
-  AWS auth failure, Textract job failure.
+- A clear `error: ...` message + non-zero exit for: a local source given with
+  no `--bucket`, missing/invalid bucket, AWS auth failure, Textract job failure.
 - Reuse the `_die(msg, code)` pattern from `convert.py` for fatal
-  pre-flight errors (e.g. no input PDFs).
+  pre-flight errors (e.g. no input PDFs, local source without `--bucket`).
+- **Region note:** auto-detection reads the region of the relevant bucket — the
+  source object's bucket for `s3://` sources, or `--bucket` for local sources.
 
 ## Testing
 
@@ -90,7 +97,10 @@ Unit tests, no live AWS calls (Textract is mocked):
   linearization method and raw-response attribute), assert that
   `<stem>.md` and `<stem>.json` are written to `<output-dir>/textract/` with the
   expected contents.
-- **Argument parsing** — `--bucket` required; defaults for region/prefix.
+- **Argument parsing** — `--bucket` required only when a local source is given;
+  `s3://` sources work without it; defaults for region/prefix.
+- **Source classification** — local path vs `s3://` URI routing (upload vs
+  direct), with the local-source-without-bucket error case.
 
 ## Out of scope
 
