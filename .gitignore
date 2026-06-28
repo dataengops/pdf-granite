@@ -7,3 +7,4 @@ uv.lock
 .env
 # Generated conversions (keep the folder, ignore contents)
 .claude/
+.docs

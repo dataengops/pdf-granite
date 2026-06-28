@@ -104,7 +104,7 @@ Put your AWS credentials in a `.env` file at the project root (gitignored):
 AWS_ACCESS_KEY_ID=...
 AWS_SECRET_ACCESS_KEY=...
 AWS_REGION=us-east-1
-S3_BUCKET=input1972
+S3_BUCKET=input
 ```
 
 Install the optional AWS dependency group and run it. Sources may be local
@@ -116,7 +116,7 @@ scratch bucket, overridable with `--bucket`):
 uv sync --group textract
 
 # PDF already in S3 (region auto-detected from the bucket):
-uv run --no-sync pdf-textract s3://input1972/SMR-1Q26-Presentation.pdf
+uv run --no-sync pdf-textract s3://input/SMR-1Q26-Presentation.pdf
 
 # Local file (uploaded to the S3_BUCKET scratch bucket from .env first):
 uv run --no-sync pdf-textract input/SMR-1Q26-Presentation.pdf
