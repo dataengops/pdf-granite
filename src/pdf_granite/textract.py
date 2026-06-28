@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+import time
 from pathlib import Path
 
 
@@ -153,3 +155,45 @@ def analyze(source: str, *, bucket: str | None, s3_prefix: str, region: str | No
     return extractor.start_document_analysis(
         file_source=source, features=_features(), s3_upload_path=upload
     )
+
+
+def load_env() -> None:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    log = (lambda *a: None) if args.quiet else (lambda *a: print(*a))
+
+    load_env()
+    bucket = args.bucket or os.environ.get("S3_BUCKET")
+
+    sources = resolve_sources(args.paths, Path(args.input_dir))
+    out_dir = Path(args.output_dir) / "textract"
+
+    done, failed = 0, 0
+    for source in sources:
+        stem = stem_for(source)
+        log(f"Textract: parsing {source} ...")
+        start = time.time()
+        try:
+            document = analyze(
+                source, bucket=bucket, s3_prefix=args.s3_prefix, region=args.region
+            )
+            outputs = write_outputs(document, out_dir, stem)
+        except Exception as exc:  # continue-on-error across the batch
+            failed += 1
+            print(f"  FAILED {source}: {exc}", file=sys.stderr)
+            continue
+        done += 1
+        names = ", ".join(p.name for p in outputs)
+        log(f"  {stem}: {time.time() - start:.1f}s, wrote {names}")
+
+    print(f"Done: {done} converted, {failed} failed.")
+    return 0 if failed == 0 else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

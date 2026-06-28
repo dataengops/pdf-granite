@@ -170,3 +170,46 @@ def test_analyze_local_source_uploads(monkeypatch):
     textract.analyze("/tmp/doc.pdf", bucket="mybucket", s3_prefix="scratch/", region=None)
     assert calls["file_source"] == "/tmp/doc.pdf"
     assert calls["s3_upload_path"] == "s3://mybucket/scratch/"
+
+
+def test_main_runs_with_fakes(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(textract, "load_env", lambda: None)
+    monkeypatch.setattr(textract, "_markdown_config", lambda: None)
+    monkeypatch.setattr(
+        textract, "resolve_sources",
+        lambda paths, input_dir: ["s3://input1972/SMR-1Q26-Presentation.pdf"],
+    )
+    monkeypatch.setattr(
+        textract, "analyze",
+        lambda source, **kw: _FakeDoc(),
+    )
+    code = textract.main(["--output-dir", str(tmp_path / "out")])
+    assert code == 0
+    base = tmp_path / "out" / "textract"
+    assert (base / "SMR-1Q26-Presentation.md").read_text(encoding="utf-8") == "# Title\n\nbody\n"
+    assert (base / "SMR-1Q26-Presentation.json").is_file()
+
+
+def test_main_returns_1_when_all_fail(tmp_path, monkeypatch):
+    monkeypatch.setattr(textract, "load_env", lambda: None)
+    monkeypatch.setattr(textract, "resolve_sources", lambda paths, input_dir: ["s3://b/x.pdf"])
+    def boom(*a, **k):
+        raise RuntimeError("nope")
+    monkeypatch.setattr(textract, "analyze", boom)
+    code = textract.main(["--output-dir", str(tmp_path / "out")])
+    assert code == 1
+
+
+def test_main_defaults_bucket_from_s3_bucket_env(tmp_path, monkeypatch):
+    monkeypatch.setattr(textract, "load_env", lambda: None)
+    monkeypatch.setattr(textract, "_markdown_config", lambda: None)
+    monkeypatch.setenv("S3_BUCKET", "envbucket")
+    monkeypatch.setattr(textract, "resolve_sources", lambda paths, input_dir: ["/tmp/doc.pdf"])
+    seen = {}
+    def capture(source, **kw):
+        seen.update(kw)
+        return _FakeDoc()
+    monkeypatch.setattr(textract, "analyze", capture)
+    code = textract.main(["--output-dir", str(tmp_path / "out")])
+    assert code == 0
+    assert seen["bucket"] == "envbucket"
