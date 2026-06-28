@@ -91,6 +91,37 @@ next to the output and linked from it — keep that folder alongside the `.md`/`
 when moving or sharing. Pass `--embed-images` to inline them as base64 for a single
 self-contained file instead.
 
+## Amazon Textract (comparison)
+
+A separate `pdf-textract` script parses PDFs with **Amazon Textract**
+(LAYOUT + TABLES) for side-by-side comparison. It writes
+`output/textract/<name>.md` plus the raw Textract JSON. It is **not** part of
+the Docling pipeline.
+
+Put your AWS credentials in a `.env` file at the project root (gitignored):
+
+```dotenv
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+AWS_REGION=us-east-1
+S3_BUCKET=input1972
+```
+
+Install the optional AWS dependency group and run it. Sources may be local
+files or `s3://` URIs (multi-page PDFs are processed via Textract's async API,
+which needs the document in S3 — local files are uploaded to the `S3_BUCKET`
+scratch bucket, overridable with `--bucket`):
+
+```bash
+uv sync --group textract
+
+# PDF already in S3 (region auto-detected from the bucket):
+uv run --no-sync pdf-textract s3://input1972/SMR-1Q26-Presentation.pdf
+
+# Local file (uploaded to the S3_BUCKET scratch bucket from .env first):
+uv run --no-sync pdf-textract input/SMR-1Q26-Presentation.pdf
+```
+
 ## Tests
 
 ```bash
