@@ -3,5 +3,7 @@ __pycache__/
 *.pyc
 .pytest_cache/
 uv.lock
+# Local secrets (AWS credentials etc.)
+.env
 # Generated conversions (keep the folder, ignore contents)
 .claude/
