@@ -1,0 +1,18 @@
+# Tell GitHub Linguist that this is a Python project.
+# Bundled C/C++/CUDA/Fortran headers come from third-party libraries (not our code).
+*.h      linguist-vendored
+*.hpp    linguist-vendored
+*.cuh    linguist-vendored
+*.f90    linguist-vendored
+
+# Generated / compiled artefacts — never count toward language stats.
+*.pyc    linguist-generated
+*.pyd    linguist-generated
+*.pyi    linguist-generated
+*.dll    linguist-binary
+*.lib    linguist-binary
+*.a      linguist-binary
+*.exe    linguist-binary
+
+# HTML output files are generated, not hand-written source.
+*.html   linguist-generated
