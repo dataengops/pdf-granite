@@ -79,3 +79,32 @@ def test_resolve_sources_s3_nonpdf_exits(tmp_path):
     with pytest.raises(SystemExit) as e:
         textract.resolve_sources(["s3://b/notapdf.txt"], tmp_path)
     assert e.value.code == 2
+
+
+def test_bucket_of():
+    assert textract.bucket_of("s3://input1972/dir/file.pdf") == "input1972"
+
+
+def test_detect_region_explicit_wins(monkeypatch):
+    # explicit region short-circuits; boto3 must not be called
+    def boom(*a, **k):
+        raise AssertionError("boto3 should not be called")
+    monkeypatch.setattr(textract, "_s3_client", boom)
+    assert textract.detect_region("anybucket", "eu-west-1") == "eu-west-1"
+
+
+def test_detect_region_from_bucket(monkeypatch):
+    class FakeS3:
+        def get_bucket_location(self, Bucket):
+            assert Bucket == "input1972"
+            return {"LocationConstraint": "us-west-2"}
+    monkeypatch.setattr(textract, "_s3_client", lambda region=None: FakeS3())
+    assert textract.detect_region("input1972", None) == "us-west-2"
+
+
+def test_detect_region_us_east_1_null_constraint(monkeypatch):
+    class FakeS3:
+        def get_bucket_location(self, Bucket):
+            return {"LocationConstraint": None}  # us-east-1 quirk
+    monkeypatch.setattr(textract, "_s3_client", lambda region=None: FakeS3())
+    assert textract.detect_region("b", None) == "us-east-1"

@@ -87,3 +87,21 @@ def resolve_sources(paths: list[str], input_dir: Path) -> list[str]:
     if not pdfs:
         _die(f"no *.pdf files in {input_dir}", 2)
     return [str(p) for p in pdfs]
+
+
+def bucket_of(s3_uri: str) -> str:
+    # s3://bucket/key... -> bucket
+    return s3_uri[len("s3://"):].split("/", 1)[0]
+
+
+def _s3_client(region: str | None = None):
+    import boto3
+
+    return boto3.client("s3", region_name=region) if region else boto3.client("s3")
+
+
+def detect_region(bucket: str, region_arg: str | None) -> str:
+    if region_arg:
+        return region_arg
+    loc = _s3_client().get_bucket_location(Bucket=bucket).get("LocationConstraint")
+    return loc or "us-east-1"
