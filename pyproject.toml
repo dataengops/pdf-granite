@@ -19,10 +19,18 @@ dependencies = [
 
 [project.scripts]
 pdf-granite = "pdf_granite.convert:main"
+pdf-textract = "pdf_granite.textract:main"
 
 [dependency-groups]
 dev = [
     "pytest>=8.3.0",
+]
+textract = [
+    # High-level Amazon Textract wrapper; pulls in boto3. Optional: only needed
+    # to actually run pdf-textract, not to import the module or run unit tests.
+    "amazon-textract-textractor>=1.8.0",
+    # Loads AWS creds from the project .env into the environment for boto3.
+    "python-dotenv>=1.0.0",
 ]
 
 [build-system]
