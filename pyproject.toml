@@ -1,0 +1,31 @@
+[project]
+name = "pdf-granite"
+version = "0.1.0"
+description = "CUDA-accelerated PDF -> Markdown/HTML converter using Docling + Granite Vision chart extraction"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    # Docling brings docling-core, a CPU torch/torchvision, transformers, and rapidocr (OCR).
+    # The Granite Vision chart-extraction path works with plain docling on >=2.107.
+    # For GPU, install a CUDA torch over this venv (see README) and run with `uv run --no-sync`.
+    "docling>=2.107.0",
+    # OCR engine backend for RapidOCR. Without it, RapidOCR falls back to an unsupported
+    # torch backend ("Unsupported configuration: torch.PP-OCRv6.det.small"). CPU-only; the
+    # torch vision/layout models are the GPU win, OCR stays on CPU.
+    "onnxruntime>=1.27.0",
+]
+
+[project.scripts]
+pdf-granite = "pdf_granite.convert:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pdf_granite"]
