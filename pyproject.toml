@@ -3,6 +3,8 @@ name = "pdf-granite"
 version = "0.1.0"
 description = "CUDA-accelerated PDF -> Markdown/HTML converter using Docling + Granite Vision chart extraction"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = [
     # Docling brings docling-core, a CPU torch/torchvision, transformers, and rapidocr (OCR).
