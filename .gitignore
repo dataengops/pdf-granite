@@ -4,5 +4,4 @@ __pycache__/
 .pytest_cache/
 uv.lock
 # Generated conversions (keep the folder, ignore contents)
-output/*
-!output/.gitkeep
+.claude/

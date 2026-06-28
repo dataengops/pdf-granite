@@ -1,0 +1,14 @@
+# chart 1: bar_chart
+Date,Cash & Cash Equivalents,Short-Term Investments,Long-Term Investments
+6/30/2025,297.7,123.0,69.2
+9/30/2025,407.6,284.2,62.0
+12/31/2025,836.4,417.8,33.0
+3/31/2026,341.1,549.0,118.6
+
+# chart 2: bar_chart
+Quarter,Value
+Q2 2025,8.1
+Q3 2025,8.2
+Q4 2025,1.8
+Q1 2026,0.6
+

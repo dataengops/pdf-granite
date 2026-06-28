@@ -35,7 +35,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="cuda = require GPU (hard-fail if absent); auto = Docling chooses; cpu = force CPU.",
     )
     p.add_argument("--no-charts", action="store_true", help="Disable Granite Vision chart extraction.")
-    p.add_argument("--no-ocr", action="store_true", help="Disable OCR.")
+    p.add_argument(
+        "--ocr",
+        action="store_true",
+        help="Enable OCR for scanned/image-based PDFs. Off by default (born-text "
+        "PDFs already have an extractable text layer).",
+    )
+    p.add_argument(
+        "--embed-images",
+        action="store_true",
+        help="Inline images as base64 in the output. Default: write images to a "
+        "sibling '<name>_artifacts' folder and link them.",
+    )
     p.add_argument("--quiet", action="store_true", help="Suppress per-step logging; keep final summary.")
     return p
 
@@ -145,8 +156,10 @@ def build_converter(device, *, do_charts: bool, do_ocr: bool):
     )
 
 
-def convert_one(converter, pdf: Path, out_dir: Path, formats: set[str]) -> dict:
+def convert_one(converter, pdf: Path, out_dir: Path, formats: set[str], *, embed_images: bool = False) -> dict:
     from docling_core.types.doc import ImageRefMode
+
+    image_mode = ImageRefMode.EMBEDDED if embed_images else ImageRefMode.REFERENCED
 
     start = time.time()
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -157,7 +170,7 @@ def convert_one(converter, pdf: Path, out_dir: Path, formats: set[str]) -> dict:
 
     if "md" in formats:
         md_path = out_dir / f"{stem}.md"
-        doc.save_as_markdown(md_path, image_mode=ImageRefMode.EMBEDDED)
+        doc.save_as_markdown(md_path, image_mode=image_mode)
         outputs.append(md_path)
 
     if "html" in formats:
@@ -172,7 +185,7 @@ def convert_one(converter, pdf: Path, out_dir: Path, formats: set[str]) -> dict:
         ser = HTMLDocSerializer(
             doc=doc,
             params=HTMLParams(
-                image_mode=ImageRefMode.EMBEDDED,
+                image_mode=image_mode,
                 output_style=HTMLOutputStyle.SPLIT_PAGE,
             ),
         )
@@ -207,7 +220,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         log("Using device: auto (Docling chooses).")
 
-    converter = build_converter(device, do_charts=not args.no_charts, do_ocr=not args.no_ocr)
+    converter = build_converter(device, do_charts=not args.no_charts, do_ocr=args.ocr)
     formats = _formats_for(args.format)
     out_dir = Path(args.output_dir)
 
@@ -215,7 +228,7 @@ def main(argv: list[str] | None = None) -> int:
     for pdf in pdfs:
         log(f"Converting {pdf.name} ...")
         try:
-            summary = convert_one(converter, pdf, out_dir, formats)
+            summary = convert_one(converter, pdf, out_dir, formats, embed_images=args.embed_images)
         except Exception as exc:  # continue-on-error across the batch
             failed += 1
             print(f"  FAILED {pdf.name}: {exc}", file=sys.stderr)

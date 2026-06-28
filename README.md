@@ -2,7 +2,7 @@
 
 Standalone CLI that converts PDFs to **Markdown and/or HTML** using
 [Docling](https://github.com/docling-project/docling), with Granite Vision chart
-extraction, embedded images, and OCR. **CUDA by default.**
+extraction, image extraction, and optional OCR. **CUDA by default.**
 
 ## Setup
 
@@ -12,6 +12,18 @@ Requires Python 3.13 and [uv](https://docs.astral.sh/uv/).
 cd c:/ai/code/pdf_granit
 uv sync                 # installs docling + a CPU torch and all other deps
 ```
+
+### CPU setup
+
+`uv sync` already installs a CPU-only `torch`, so no extra steps are needed. Just
+run with `--device cpu` (about 10x slower than CUDA):
+
+```bash
+uv run --no-sync pdf-granite --device cpu
+```
+
+`--no-sync` is optional on a clean CPU install, but using it consistently avoids
+surprises if you later add a CUDA build (see below).
 
 ### GPU / CUDA setup
 
@@ -45,10 +57,17 @@ uv run --no-sync pdf-granite "input/My File.pdf" --format both
 
 # No GPU? (about 10x slower)
 uv run --no-sync pdf-granite --device cpu
+
+# Scanned / image-based PDFs? Enable OCR (off by default)
+uv run --no-sync pdf-granite --ocr
 ```
 
 With the default `--device cuda`, the tool hard-fails if no GPU is visible and
 prints how to install a CUDA torch build.
+
+OCR is **off by default** — born-text PDFs already carry an extractable text layer,
+so OCR adds time without improving output. Add `--ocr` only for scanned or
+image-based PDFs where the text is baked into pixels.
 
 ## Options
 
@@ -60,11 +79,17 @@ prints how to install a CUDA torch build.
 | `--format md\|html\|both` | `md` | Output format(s) |
 | `--device cuda\|cpu\|auto` | `cuda` | `cuda` hard-fails without a GPU |
 | `--no-charts` | off | Disable chart extraction (faster) |
-| `--no-ocr` | off | Disable OCR |
+| `--ocr` | off | Enable OCR for scanned/image-based PDFs (off by default) |
+| `--embed-images` | off | Inline images as base64 instead of linking external files |
 | `--quiet` | off | Only print the final summary |
 
-Outputs per `<name>.pdf`: `<name>.md` and/or `<name>.html` (embedded images), plus
-`<name>_charts.csv` when charts are detected.
+Outputs per `<name>.pdf`: `<name>.md` and/or `<name>.html`, plus `<name>_charts.csv`
+when charts are detected.
+
+By default images are written as separate PNGs into a `<name>_artifacts/` folder
+next to the output and linked from it — keep that folder alongside the `.md`/`.html`
+when moving or sharing. Pass `--embed-images` to inline them as base64 for a single
+self-contained file instead.
 
 ## Tests
 

@@ -14,18 +14,20 @@ def test_parser_defaults():
     assert ns.format == "md"
     assert ns.device == "cuda"
     assert ns.no_charts is False
-    assert ns.no_ocr is False
+    assert ns.ocr is False
     assert ns.quiet is False
+    assert ns.embed_images is False
 
 
 def test_parser_overrides():
     ns = convert.build_parser().parse_args(
-        ["a.pdf", "b.pdf", "--format", "both", "--device", "cpu", "--no-charts", "--quiet"]
+        ["a.pdf", "b.pdf", "--format", "both", "--device", "cpu", "--no-charts", "--ocr", "--quiet"]
     )
     assert ns.paths == ["a.pdf", "b.pdf"]
     assert ns.format == "both"
     assert ns.device == "cpu"
     assert ns.no_charts is True
+    assert ns.ocr is True
     assert ns.quiet is True
 
 
@@ -138,7 +140,7 @@ def test_main_runs_with_fakes(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(convert, "resolve_device", lambda choice: "FAKE_DEVICE")
     monkeypatch.setattr(convert, "build_converter", lambda device, **kw: object())
 
-    def fake_convert_one(converter, pdf_path, out_dir, formats):
+    def fake_convert_one(converter, pdf_path, out_dir, formats, **kwargs):
         Path(out_dir).mkdir(parents=True, exist_ok=True)
         target = Path(out_dir) / (Path(pdf_path).stem + ".md")
         target.write_text("# hi", encoding="utf-8")
