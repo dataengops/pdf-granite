@@ -108,3 +108,65 @@ def test_detect_region_us_east_1_null_constraint(monkeypatch):
             return {"LocationConstraint": None}  # us-east-1 quirk
     monkeypatch.setattr(textract, "_s3_client", lambda region=None: FakeS3())
     assert textract.detect_region("b", None) == "us-east-1"
+
+
+class _FakeDoc:
+    def __init__(self):
+        self.response = {"DocumentMetadata": {"Pages": 3}, "Blocks": []}
+
+    def to_markdown(self, config=None):
+        return "# Title\n\nbody\n"
+
+
+def test_build_markdown(monkeypatch):
+    # build_markdown must not require the real textractor config import path to exist
+    monkeypatch.setattr(textract, "_markdown_config", lambda: None)
+    assert textract.build_markdown(_FakeDoc()) == "# Title\n\nbody\n"
+
+
+def test_write_outputs(tmp_path, monkeypatch):
+    monkeypatch.setattr(textract, "_markdown_config", lambda: None)
+    out = tmp_path / "textract"
+    paths = textract.write_outputs(_FakeDoc(), out, "doc")
+    md = out / "doc.md"
+    js = out / "doc.json"
+    assert set(paths) == {md, js}
+    assert md.read_text(encoding="utf-8") == "# Title\n\nbody\n"
+    assert json.loads(js.read_text(encoding="utf-8"))["DocumentMetadata"]["Pages"] == 3
+
+
+def test_analyze_local_requires_bucket(monkeypatch):
+    with pytest.raises(SystemExit) as e:
+        textract.analyze("/tmp/doc.pdf", bucket=None, s3_prefix="p/", region="us-east-1")
+    assert e.value.code == 2
+
+
+def test_analyze_s3_source_no_upload(monkeypatch):
+    calls = {}
+    class FakeExtractor:
+        def start_document_analysis(self, **kw):
+            calls.update(kw)
+            return _FakeDoc()
+    monkeypatch.setattr(textract, "_build_extractor", lambda region: FakeExtractor())
+    monkeypatch.setattr(textract, "detect_region", lambda bucket, region: "us-west-2")
+    monkeypatch.setattr(textract, "_features", lambda: ["LAYOUT", "TABLES"])
+    doc = textract.analyze(
+        "s3://input1972/SMR-1Q26-Presentation.pdf", bucket=None, s3_prefix="p/", region=None
+    )
+    assert isinstance(doc, _FakeDoc)
+    assert calls["file_source"] == "s3://input1972/SMR-1Q26-Presentation.pdf"
+    assert "s3_upload_path" not in calls or calls["s3_upload_path"] is None
+
+
+def test_analyze_local_source_uploads(monkeypatch):
+    calls = {}
+    class FakeExtractor:
+        def start_document_analysis(self, **kw):
+            calls.update(kw)
+            return _FakeDoc()
+    monkeypatch.setattr(textract, "_build_extractor", lambda region: FakeExtractor())
+    monkeypatch.setattr(textract, "detect_region", lambda bucket, region: "us-east-1")
+    monkeypatch.setattr(textract, "_features", lambda: ["LAYOUT", "TABLES"])
+    textract.analyze("/tmp/doc.pdf", bucket="mybucket", s3_prefix="scratch/", region=None)
+    assert calls["file_source"] == "/tmp/doc.pdf"
+    assert calls["s3_upload_path"] == "s3://mybucket/scratch/"

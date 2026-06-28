@@ -14,6 +14,7 @@ without the optional `textract` dependency group installed.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -105,3 +106,50 @@ def detect_region(bucket: str, region_arg: str | None) -> str:
         return region_arg
     loc = _s3_client().get_bucket_location(Bucket=bucket).get("LocationConstraint")
     return loc or "us-east-1"
+
+
+def _markdown_config():
+    from textractor.data.markdown_linearization_config import MarkdownLinearizationConfig
+
+    return MarkdownLinearizationConfig(table_linearization_format="markdown")
+
+
+def _features():
+    from textractor.data.constants import TextractFeatures
+
+    return [TextractFeatures.LAYOUT, TextractFeatures.TABLES]
+
+
+def _build_extractor(region: str):
+    from textractor import Textractor
+
+    return Textractor(region_name=region)
+
+
+def build_markdown(document) -> str:
+    return document.to_markdown(_markdown_config())
+
+
+def write_outputs(document, out_dir: Path, stem: str) -> list[Path]:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    md_path = out_dir / f"{stem}.md"
+    json_path = out_dir / f"{stem}.json"
+    md_path.write_text(build_markdown(document), encoding="utf-8")
+    json_path.write_text(json.dumps(document.response, indent=2), encoding="utf-8")
+    return [md_path, json_path]
+
+
+def analyze(source: str, *, bucket: str | None, s3_prefix: str, region: str | None):
+    if is_s3_uri(source):
+        resolved_region = detect_region(bucket_of(source), region)
+        extractor = _build_extractor(resolved_region)
+        return extractor.start_document_analysis(file_source=source, features=_features())
+    # local source -> must upload to a scratch bucket
+    if not bucket:
+        _die(f"--bucket is required to upload local source: {source}", 2)
+    resolved_region = detect_region(bucket, region)
+    extractor = _build_extractor(resolved_region)
+    upload = f"s3://{bucket}/{s3_prefix}"
+    return extractor.start_document_analysis(
+        file_source=source, features=_features(), s3_upload_path=upload
+    )
